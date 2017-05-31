@@ -99,6 +99,7 @@ local function showDialog()
 							progressScope:setCaption(string.format("%s", target))
 							logger:trace(i, #targets, target)
 							LrFileUtils.moveToTrash(target)
+							LrTasks.yield()
 						end
 					end)
 				end
