@@ -12,8 +12,6 @@ logger:enable("print")
 
 local function showDialog()
 	LrFunctionContext.callWithContext( "showDialog", function (context)
-		local f = LrView.osFactory()
-
 		local props = LrBinding.makePropertyTable( context )
 		props.totalSize = "calclating..."
 		props.isReady = false
@@ -23,7 +21,7 @@ local function showDialog()
 		local targets = {}
 
 		LrTasks.startAsyncTask(function () 
-			LrFunctionContext.callWithContext("calclate sidecar jpegs", function (context)
+			local continue = LrFunctionContext.callWithContext("calclate sidecar jpegs", function (context)
 				local progressScope = LrDialogs.showModalProgressDialog {
 					title = "Finding Sidecar Files",
 					caption = "",
@@ -70,13 +68,20 @@ local function showDialog()
 
 					if progressScope:isCanceled() then
 						logger:trace("Canceled")
-						return
+						return false
 					end
 				end
 				props.isReady = true
 				progressScope:done()
 				logger:trace( string.format("Ready %s", targets) )
+				return true
 			end)
+
+			logger:trace( string.format("continue? %s", continue) )
+			if not continue then
+				return
+			end
+
 			LrTasks.yield()
 
 			if #targets > 0 then
