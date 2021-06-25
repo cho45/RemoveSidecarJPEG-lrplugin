@@ -27,19 +27,28 @@ local function showDialog()
 					caption = "",
 					cannotCancel = false,
 					functionContext = context,
+					width = 800
 				}
 
 				local totalSize = 0
 				for i, photo in ipairs(photos) do
+					local path = photo:getRawMetadata("path")
+
 					logger:trace(i, #photos, photo)
+
 					progressScope:setPortionComplete(i, #photos)
-					progressScope:setCaption(string.format("%d/%d total: %d MB: ", i, #photos, totalSize / 1024 / 1024))
+					progressScope:setCaption(string.format(
+						"%d/%d Total Found: %d MB %s",
+						i,
+						#photos,
+						totalSize / 1024 / 1024,
+						path
+					))
 
 					local isVirtualCopy = photo:getRawMetadata("isVirtualCopy")
 					local format = photo:getRawMetadata("fileFormat")
 
 					if not isVirtualCopy and (format == 'RAW' or format == 'DNG') then
-						local path = photo:getRawMetadata("path")
 						local base = path:gsub("%.[^.]+$", "")
 
 						logger:trace( string.format("Found RAW File %s (base: %s)", path, base) )
@@ -93,6 +102,7 @@ local function showDialog()
 				)
 				logger:trace( string.format("confirm: %s", confirm) )
 
+				local forceDelete = false
 				if confirm == "ok" then
 					LrFunctionContext.callWithContext("remove sidecar jpegs", function (context)
 						local progressScope = LrProgressScope {
@@ -103,7 +113,36 @@ local function showDialog()
 							progressScope:setPortionComplete(i, #targets)
 							progressScope:setCaption(string.format("%s", target))
 							logger:trace(i, #targets, target)
-							LrFileUtils.moveToTrash(target)
+
+							if not forceDelete then
+								local ok, reason = LrFileUtils.moveToTrash(target)
+								if not ok then
+									local confirm = LrDialogs.confirm(
+										string.format("Error occured on moving to trash: %s", reason),
+										nil,
+										"Continue",
+										"Abort",
+										"Delete All Forcely"
+									)
+									if confirm == "cancel" then
+										break
+									end
+									if confirm == "other" then
+										local ok, reason = LrFileUtils.delete(target)
+										if not ok then
+											LrDialogs.showError(reason)
+											break
+										end
+										forceDelete = true
+									end
+								end
+							else
+								local ok, reason = LrFileUtils.delete(target)
+								if not ok then
+									LrDialogs.showError(reason)
+									break
+								end
+							end
 							LrTasks.yield()
 						end
 					end)
