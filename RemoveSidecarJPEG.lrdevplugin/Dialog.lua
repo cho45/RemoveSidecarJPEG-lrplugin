@@ -8,7 +8,7 @@ local LrProgressScope = import 'LrProgressScope'
 local LrFileUtils = import 'LrFileUtils'
 local LrApplication = import 'LrApplication'
 local logger = LrLogger( 'libraryLogger' )
-logger:enable("print")
+logger:enable("logfile")
 
 local function showDialog()
 	LrFunctionContext.callWithContext( "showDialog", function (context)
@@ -58,16 +58,24 @@ local function showDialog()
 							string.format("%s.jpg", base),
 						}
 
+						-- treat PXL_20250325_023559643.RAW-02.ORIGINAL.dng -> PXL_20250325_023559643.RAW-01.COVER.jpg pairs
+						-- but PXL_20250325_023626919.RAW-01.MP.COVER.jpg (motion photo) is not target
+						if path:match("%-02.ORIGINAL%.dng$") then
+							local cover = path:gsub("%-02.ORIGINAL%.dng$", "-01.COVER.jpg")
+							table.insert(jpegs, cover)
+						end
+
 						for _, jpeg in ipairs(jpegs) do
-							logger:trace( string.format("Check %s", jpeg) )
-							if LrFileUtils.isDeletable(jpeg) then
+							local photo = catalog:findPhotoByPath(jpeg)
+							logger:trace( string.format("Check %s %s", jpeg, photo) )
+							if photo or LrFileUtils.isDeletable(jpeg) then
 								local attr = LrFileUtils.fileAttributes(jpeg)
 								logger:trace( string.format("Get attr %s %s", jpeg, attr.fileSize) )
 								if attr.fileSize then
 									totalSize = totalSize + attr.fileSize
 									logger:trace( string.format("Found Sidecar JPEG File %s (size: %d)", jpeg, attr.fileSize) )
-									table.insert(targets, jpeg)
 								end
+								table.insert(targets, jpeg)
 								break
 							end
 						end
@@ -110,9 +118,10 @@ local function showDialog()
 							functionContext = context,
 						}
 						for i, target in ipairs(targets) do
+							local photo = catalog:findPhotoByPath(target)
 							progressScope:setPortionComplete(i, #targets)
 							progressScope:setCaption(string.format("%s", target))
-							logger:trace(i, #targets, target)
+							logger:trace(i, #targets, target, photo)
 
 							if not forceDelete then
 								local ok, reason = LrFileUtils.moveToTrash(target)
