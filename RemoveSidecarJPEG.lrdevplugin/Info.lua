@@ -7,7 +7,7 @@ return {
 
 	LrLibraryMenuItems = {
 		{
-			title = LOC "Remove Sidecar JPEG...",
+			title = LOC "Select Sidecar JPEG...",
 			file = "Dialog.lua",
 			enabledWhen = "anythingSelected",
 		},

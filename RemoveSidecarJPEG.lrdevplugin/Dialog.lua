@@ -68,14 +68,14 @@ local function showDialog()
 						for _, jpeg in ipairs(jpegs) do
 							local photo = catalog:findPhotoByPath(jpeg)
 							logger:trace( string.format("Check %s %s", jpeg, photo) )
-							if photo or LrFileUtils.isDeletable(jpeg) then
+							if photo then
 								local attr = LrFileUtils.fileAttributes(jpeg)
 								logger:trace( string.format("Get attr %s %s", jpeg, attr.fileSize) )
 								if attr.fileSize then
 									totalSize = totalSize + attr.fileSize
 									logger:trace( string.format("Found Sidecar JPEG File %s (size: %d)", jpeg, attr.fileSize) )
 								end
-								table.insert(targets, jpeg)
+								table.insert(targets, photo)
 								break
 							end
 						end
@@ -103,58 +103,15 @@ local function showDialog()
 
 			if #targets > 0 then
 				local confirm = LrDialogs.confirm(
-					"Sure to move sidecar JPEGs to trash?", 
+					"Sure to select sidecar JPEGs to trash?", 
 					string.format("%d files (%d MB)", #targets, props.totalSize / 1024 / 1024), 
-					"Move to Trash", 
+					"Select sidecar JPEGs", 
 					"Cancel"
 				)
 				logger:trace( string.format("confirm: %s", confirm) )
 
-				local forceDelete = false
 				if confirm == "ok" then
-					LrFunctionContext.callWithContext("remove sidecar jpegs", function (context)
-						local progressScope = LrProgressScope {
-							title = "Removing sidecar JPEG",
-							functionContext = context,
-						}
-						for i, target in ipairs(targets) do
-							local photo = catalog:findPhotoByPath(target)
-							progressScope:setPortionComplete(i, #targets)
-							progressScope:setCaption(string.format("%s", target))
-							logger:trace(i, #targets, target, photo)
-
-							if not forceDelete then
-								local ok, reason = LrFileUtils.moveToTrash(target)
-								if not ok then
-									local confirm = LrDialogs.confirm(
-										string.format("Error occured on moving to trash: %s", reason),
-										nil,
-										"Continue",
-										"Abort",
-										"Delete All Forcely"
-									)
-									if confirm == "cancel" then
-										break
-									end
-									if confirm == "other" then
-										local ok, reason = LrFileUtils.delete(target)
-										if not ok then
-											LrDialogs.showError(reason)
-											break
-										end
-										forceDelete = true
-									end
-								end
-							else
-								local ok, reason = LrFileUtils.delete(target)
-								if not ok then
-									LrDialogs.showError(reason)
-									break
-								end
-							end
-							LrTasks.yield()
-						end
-					end)
+					catalog:setSelectedPhotos(targets[1], targets)
 				end
 			else
 				LrDialogs.message("No sidecar JPEGs found.", nil, "info" )
